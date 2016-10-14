@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
 <addon id="plugin.video.pseudo.library" name="PseudoLibrary" version="0.0.2a" provider-name="Sytone, Lunatixz">
     <requires>
         <import addon="xbmc.python" version="2.1.0"/>
@@ -14,14 +15,32 @@
         <import addon="script.module.urlresolver" optional="true"/>
         <import addon="script.module.simplejson" /> 
         <import addon="script.common.plugin.cache" version="2.5.2"/>
-        <import addon="script.module.metahandler" version="2.9.0"/>	
+        <import addon="script.module.metahandler" version="2.9.0"/>
+        <import addon="service.watchdog" version="0.9.7"/>
+    <!--  -->
+        <import addon="script.module.pydevd" version="4.4.0" optional="true"/>
+        <import addon="script.module.pydevd-master" version="4.4.0" optional="true"/>   
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
     <provides>video</provides>
     </extension>
+    <extension point="xbmc.service" library="service.py" start="startup"/>
     <extension point="xbmc.addon.metadata">
-        <platform>all</platform>
-        <summary lang="en_US">Virtual Library Strm Generator</summary>
-        <description lang="en_US">Generate Strms from Kodi Plugins, UPNP, Youtube, and RSS Sources.</description>
+    <summary lang="en_gb">Library Strm Generator</summary>
+    <description lang="en_gb">Generate Strms from Kodi Plugins, UPNP, Youtube, and RSS Sources.</description>
+    <disclaimer lang="en_gb"></disclaimer>
+    <language></language>
+    <platform>all</platform>
+    <license>GNU GENERAL PUBLIC LICENSE. Version 3</license>
+    <forum></forum>
+    <website></website>
+    <email></email>
+    <source></source>
+    <news></news>
+    <assets>
+        <icon>icon.png</icon>
+        <fanart>fanart.jpg</fanart>
+        <screenshot></screenshot>
+    </assets>
     </extension>
 </addon>

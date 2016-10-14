@@ -1,25 +1,31 @@
-#   Copyright (C) 2015 Kevin S. Graer
+# This file is part of PseudoLibrary.
 #
-#
-# This file is part of PseudoTV Library.
-#
-# PseudoTV is free software: you can redistribute it and/or modify
+# PseudoLibrary is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# PseudoTV is distributed in the hope that it will be useful,
+# PseudoLibrary is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with PseudoTV.  If not, see <http://www.gnu.org/licenses/>.
+# along with PseudoLibrary.  If not, see <http://www.gnu.org/licenses/>.
 
 # -*- coding: utf-8 -*-
 import urllib, urllib2, cookielib, requests
 import time, datetime
+import utils
+import random
+import string
 import os, sys, re, traceback
+#hase to be here otherwise you get errors like: UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 15: ordinal not in range(128) 
+reload(sys)  
+sys.setdefaultencoding('utf8')
+import xbmc
+REMOTE_DBG = True
+
 import xbmcplugin, xbmcgui, xbmcaddon, xbmcvfs
 import SimpleDownloader as downloader
 try:
@@ -28,6 +34,8 @@ except:
     import simplejson as json
 
 from BeautifulSoup import BeautifulStoneSoup, BeautifulSoup, BeautifulSOAP
+#import pydevd
+#pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 
 addon = xbmcaddon.Addon('plugin.video.pseudo.library')
 addon_version = addon.getAddonInfo('version')
@@ -53,7 +61,6 @@ else: FAV = []
 
 DIRS = []
 STRM_LOC = xbmc.translatePath(addon.getSetting('STRM_LOC'))
-
 def addon_log(string):
     # if debug == 'true':
     xbmc.log("[plugin.video.pseudo.library-%s]: %s" %(addon_version, string))
@@ -74,47 +81,33 @@ def uncleanString(string):
                        
 def cleanLabels( text, format=''):
     text = uni(text)
-    text = re.sub('\[COLOR (.+?)\]', '', text)
-    text = re.sub('\[/COLOR\]', '', text)
-    text = re.sub('\[COLOR=(.+?)\]', '', text)
-    text = re.sub('\[color (.+?)\]', '', text)
-    text = re.sub('\[/color\]', '', text)
-    text = re.sub('\[Color=(.+?)\]', '', text)
-    text = re.sub('\[/Color\]', '', text)
-    text = text.replace("[]",'')
-    text = text.replace("[UPPERCASE]",'')
-    text = text.replace("[/UPPERCASE]",'')
-    text = text.replace("[LOWERCASE]",'')
-    text = text.replace("[/LOWERCASE]",'')
-    text = text.replace("[B]",'')
-    text = text.replace("[/B]",'')
-    text = text.replace("[I]",'')
-    text = text.replace("[/I]",'')
-    text = text.replace('[D]','')
-    text = text.replace('[F]','')
-    text = text.replace("[CR]",'')
-    text = text.replace("[HD]",'')
-    text = text.replace("()",'')
-    text = text.replace("[CC]",'')
-    text = text.replace("[Cc]",'')
-    text = text.replace("[Favorite]", "")
-    text = text.replace("[DRM]", "")
-    text = text.replace('(cc).','')
-    text = text.replace('(n)','')
-    text = text.replace("(SUB)",'')
-    text = text.replace("(DUB)",'')
-    text = text.replace('(repeat)','')
-    text = text.replace("(English Subtitled)", "")    
-    text = text.replace("*", "")
-    text = text.replace("\n", "")
-    text = text.replace("\r", "")
-    text = text.replace("\t", "")
-    text = text.replace("\ ",'')
-    text = text.replace("/ ",'')
-    text = text.replace("\\",'/')
-    text = text.replace("//",'/')
-    text = text.replace('plugin.video.','')
-    text = text.replace('plugin.audio.','')
+    dictresub = {'\[COLOR (.+?)\]' : '','\[/COLOR\]' : '','\[COLOR=(.+?)\]' : '', '\[color (.+?)\]': '',
+                 '\[/color\]': '', '\[Color=(.+?)\]': '','\[/Color\]': ''} 
+    ascciReplacements = {'\xc3\x84' : 'Ae','\xc3\xa4' : 'ae', '\xc3\x96' : 'Oe', '\xc3\xb6' : 'oe',
+                         '\xc3\x9c' : 'Ue', 'xc3\xbc' : 'ue', '\xc3\x9f' : 'ss'}  
+    replacements =((u"[]", u''),(u"[UPPERCASE]", u''),
+                   (u"[/UPPERCASE]", u''),(u"[LOWERCASE]", u''),
+                   (u"[/LOWERCASE]", u''),(u"(de)", u" german"),
+                   (u"(en)", u" english"),(u"(TVshow)", u""),
+                   (u"[B]", u''),(u"[/B]", u''),
+                   (u"[I]", u''),(u"[/I]", u''),
+                   (u'[D]',u''),(u'[F]',u''),
+                   (u"[CR]", u''),(u"[HD]", u''),
+                   (u"()", u''),(u"[CC]", u''),
+                   (u"[Cc]", u''),(u"[Favorite]", u""),
+                   (u"[DRM]", u""),(u'(cc).',u''),
+                   (u'(n)',u''),(u"(SUB)", u''),
+                   (u"(DUB)", u''),(u'(repeat)',u''),
+                   (u"(English Subtitled)", u""),(u"*", u""),
+                   (u"\n", u""),(u"\r", u""),
+                   (u"\t", u""),(u"\ ", u''),
+                   (u"/ ", u''),(u"\\", u'/'),
+                   (u"//", u'/'),(u'plugin.video.',u''),
+                   (u'plugin.audio.',u''))
+
+    text = utils.multiple_reSub(text.rstrip(), ascciReplacements)
+    text = utils.multiple_reSub(text, dictresub)
+    text = utils.multiple_replace(text, *replacements)
     text = re.sub('[\/:*?<>|!@#$/:]', '', text)
     if format == 'title':
         text = text.title().replace("'S","'s")
@@ -173,8 +166,8 @@ def requestList(path, fletype='video'):
     addon_log("requestList, path = " + path) 
     json_query = ('{"jsonrpc": "2.0", "method": "Files.GetDirectory", "params": {"directory": "%s", "media": "%s", "properties":["thumbnail","fanart","title","year","mpaa","imdbnumber","description","season","episode","playcount","genre","duration","runtime","showtitle","album","artist","plot","plotoutline","tagline","tvshowid"]}, "id": 1}'%(path,fletype))
     json_folder_detail = sendJSON(json_query)
-    return re.compile( "{(.*?)}", re.DOTALL ).findall(json_folder_detail)      
-   
+    return re.compile( "{(.*?)}", re.DOTALL ).findall(json_folder_detail)
+
 def fillPluginItems(url, media_type='video', file_type=False, strm=False, strm_name='', strm_type='Other'):
     addon_log('fillPluginItems')
     if not file_type:
@@ -188,11 +181,22 @@ def fillPluginItems(url, media_type='video', file_type=False, strm=False, strm_n
         thumbnails = re.search('"thumbnail" *: *"(.*?)",', f)
         fanarts = re.search('"fanart" *: *"(.*?)",', f)
         descriptions = re.search('"description" *: *"(.*?)",', f)
+        episodes = re.search('"episode" *: *(.*?),', f)
+        seasons = re.search('"season" *: *(.*?),', f)
+        showtitles = re.search('"showtitle" *: *"(.*?)",', f)
         
+        dictReplacements = {'\\([^)]*\\)' : '','\\[[^)]*\\]' : '','Kinofilme' : '', 
+                            'Movies' : '','Filme' : '','Movie' : '',"'.'" : ' ', '\xc3\x84' : 'Ae',
+                            '\xc3\xa4' : 'ae', '\xc3\x96' : 'Oe', '\xc3\xb6' : 'oe',
+                            '\xc3\x9c' : 'Ue', 'xc3\xbc' : 'ue', '\xc3\x9f' : 'ss'}
+
         if filetypes and labels and files:
             filetype = filetypes.group(1)
             label = cleanLabels(labels.group(1))
             file = (files.group(1).replace("\\\\", "\\"))
+            showtitle = utils.multiple_reSub((showtitles.group(1)).rstrip(), dictReplacements)           
+            season = (seasons.group(1))
+            episode = (episodes.group(1).replace("-", ""))
             
             if not descriptions:
                 description = ''
@@ -207,11 +211,27 @@ def fillPluginItems(url, media_type='video', file_type=False, strm=False, strm_n
             else:
                 link = file
             
-            if strm_type in ['TV','Episodes']:
+            if strm_type in ['TV']:
                 path = os.path.join('TV',strm_name)
                 filename = strm_name + ' - ' + label
+                print path, utils.multiple_reSub(filename.rstrip(), dictReplacements)
+                
+            if strm_type in ['Cinema']:
+                path = os.path.join('Cinema',strm_name)
+                filename =   utils.multiple_reSub(label.rstrip(), dictReplacements)
                 print path, filename
                 
+            if strm_type in ['TV-Shows']:
+                if showtitle and season and episode:
+#                     if showtitle == "":
+#                         showtitle = strm_name
+                    path = os.path.join('TV-Shows',showtitle)    
+                    filename = 's' + season + 'e' + episode
+                    print path, filename  
+                else:
+                    path = os.path.join('Other', strm_name)
+                    filename = strm_name + ' - ' + label
+                    print path, filename              
             if filetype == 'file':
                 if strm:
                     writeSTRM(cleanStrms(path), cleanStrms(filename) ,link)
@@ -223,8 +243,8 @@ def fillPluginItems(url, media_type='video', file_type=False, strm=False, strm_n
                     fillPluginItems(file, media_type, file_type, strm, label, strm_type)
                 else:
                     addDir(label,file,101,thumbnail,fanart,description,'','','')
-                    #xbmc.executebuiltin("Container.SetViewMode(500)")    
-        
+                    #xbmc.executebuiltin("Container.SetViewMode(500)")
+ 
 def fillPlugins(type='video'):
     addon_log('fillPlugins, type = ' + type)
     json_query = ('{"jsonrpc":"2.0","method":"Addons.GetAddons","params":{"type":"xbmc.addon.%s","properties":["name","path","thumbnail","description","fanart","summary"]}, "id": 1 }'%type)
@@ -257,6 +277,9 @@ def getSources():
     addDir('UPNP Servers','upnp://',2,icon,FANART,'description','genre','date','credits')
     addDir('PVR Backend','pvr://',2,icon,FANART,'description','genre','date','credits')
 
+def clearpathForTVShowsKinox(pathString):
+    return pathString.sub(r'([\w]+) - Staffel ([\w]+)', r'\\2', '')
+
 def getData(url,fanart):
     addon_log('getData, url = ' + type)
     
@@ -281,7 +304,11 @@ def addDir(name,url,mode,iconimage,fanart,description,genre,date,credits,showcon
     liz.setProperty("Fanart_Image", fanart)
     contextMenu.append(('Create Strms','XBMC.RunPlugin(%s&mode=200&name=%s)'%(u, name)))
     liz.addContextMenuItems(contextMenu)
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=True)
+    try:
+        ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=True)
+    except:
+        pass
+    
     return ok
         
 def addLink(name,url,mode,iconimage,fanart,description,genre,date,showcontext,playlist,regexs,total,setCookie=""): 
@@ -306,6 +333,17 @@ def removeStringElem(lst,string=''):
     
 def replaceStringElem(lst,old='',new=''):
     return ([x.replace(old,new) for x in lst])
+
+def updateStream(strm_Fullpath, replace_text):
+    addon_log('updateStream')
+    for line in fileinput.input(strm_Fullpath,inplace=1):
+        if not line == replace_text:
+            line = line.replace(line, replace_text)
+            addon_log('Updated: ' + strm_Fullpath)
+            
+    while os.stat(strm_Fullpath).st_size == 0:
+        with open(strm_Fullpath, 'w') as newF:
+            newF.write(replace_text)        
     
 def makeSTRM(filepath, filename, url):
     addon_log('makeSTRM')
@@ -326,13 +364,15 @@ def makeSTRM(filepath, filename, url):
         
 def writeSTRM(path, file, url):
     addon_log('writeSTRM')
+    if url.find("plugin://plugin.video.pseudo.library/?url=plugin") == -1:
+        url = url.strip().replace("?url=plugin", "plugin://plugin.video.pseudo.library/?url=plugin", 1)
     makeSTRM(path, file, url)
           
-def writeSettings2(url, type='Other'):
+def writeSettings2(url, name, type='Other'):
     addon_log('writeSettings2')
     thelist = []
     thefile = xbmc.translatePath(os.path.join(profile,'settings2.xml'))
-    theentry = '|'.join([type,url])+'\n'
+    theentry = '|'.join([type,name,url])+'\n'
     
     if xbmcvfs.exists(thefile):
         fle = open(thefile, "r")
@@ -360,18 +400,18 @@ def removeSettings2(url, type='Other'):
     # parse settings2 for url remove entry
     
 def getType():
-    Types = ['TV','Episodes','Movies','Other']
+    Types = ['TV','Cinema', 'TV-Shows','Episodes','Movies','Other']
     select = selectDialog(Types)
     if select >= 0:
         return Types[select]
     
 def getURL(par):
     try:
-        # if par.startswith('?url=plugin://plugin.video.pseudo.library/')
-            # url = par.split('?url=')[1]
-        # else:
-        url = par.split('?url=')[1]
-        url = url.split('&mode=')[0]
+        if par.startswith('?url=plugin://plugin.video.pseudo.library/'):
+            url = par.split('?url=')[1]
+        else:
+            url = par.split('?url=')[1]
+            url = url.split('&mode=')[0]
     except:
         url = None
     return url
@@ -382,7 +422,7 @@ def getURL(par):
 
 def handle_wait(time_to_wait,header,title): #*Thanks enen92
     dlg = xbmcgui.DialogProgress()
-    dlg.create("PseudoTV Live", header)
+    dlg.create("PseudoLibrary", header)
     secs=0
     percent=0
     increment = int(100 / time_to_wait)
@@ -437,27 +477,33 @@ def browse(type, heading, shares, mask='', useThumbs=False, treatAsFolder=False,
     return retval
        
 def get_params():
-    addon_log('get_params')
-    param=[]
-    paramstring=sys.argv[2]
-    addon_log('paramstring = ' + paramstring)
-    if len(paramstring)>=2:
-        params=sys.argv[2]
-        cleanedparams=params.replace('?','')
-        if (params[len(params)-1]=='/'):
-            params=params[0:len(params)-2]
-        pairsofparams=cleanedparams.split('&')
-        param={}
-        for i in range(len(pairsofparams)):
-            splitparams={}
-            splitparams=pairsofparams[i].split('=')
-            if (len(splitparams))==2:
-                param[splitparams[0]]=splitparams[1]
-    addon_log('param = ' + str(param))
-    return param
+    try:    
+        addon_log('get_params')
+        param=[]
+        paramstring=sys.argv[2]
+        addon_log('paramstring = ' + paramstring)
+        if len(paramstring)>=2:
+            params=sys.argv[2]
+            cleanedparams=params.replace('?','')
+            if (params[len(params)-1]=='/'):
+                params=params[0:len(params)-2]
+            pairsofparams=cleanedparams.split('&')
+            param={}
+            for i in range(len(pairsofparams)):
+                splitparams={}
+                splitparams=pairsofparams[i].split('=')
+                if (len(splitparams))==2:
+                    param[splitparams[0]]=splitparams[1]
+        addon_log('param = ' + str(param))
+        return param
+    except:
+        pass
 
-xbmcplugin.setContent(int(sys.argv[1]), 'movies')
 
+try:
+    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+except:
+    pass
 try:
     xbmcplugin.addSortMethod(int(sys.argv[1]), xbmcplugin.SORT_METHOD_UNSORTED)
 except:
@@ -476,9 +522,8 @@ except:
     pass
 
 params=get_params()
-
-url=None
 name=None
+url=None
 mode=None
 playlist=None
 iconimage=None
@@ -490,12 +535,15 @@ regexs=None
 try:
     url=urllib.unquote_plus(params["url"]).decode('utf-8')
 except:
-    url=getURL(sys.argv[2])
+    try:
+        url=getURL(sys.argv[2])
+    except:
+        pass
     pass
 try:
     name=urllib.unquote_plus(params["name"])
 except:
-    pass
+    name = None
 try:
     iconimage=urllib.unquote_plus(params["iconimage"])
 except:
@@ -529,33 +577,46 @@ addon_log("Name: "+str(name))
 if mode==None:
     addon_log("getSources")
     getSources()
-    xbmcplugin.endOfDirectory(int(sys.argv[1]))
-
+    try:
+        xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    except:
+        pass
 elif mode==1:
     fillPlugins(url)
-    xbmcplugin.endOfDirectory(int(sys.argv[1]))
-    
+    try:
+        xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    except:
+        pass
 elif mode==2:
     fillPluginItems(url)
-    xbmcplugin.endOfDirectory(int(sys.argv[1]))
-    
+    try:
+        xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    except:
+        pass    
 elif mode==10:
     addon_log("setResolvedUrl")
     item = xbmcgui.ListItem(path=url)
-    xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
-
+    try:
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
+    except:
+        pass 
 elif mode==100:
     fillPlugins(url)
-    xbmcplugin.endOfDirectory(int(sys.argv[1]))
-
+    try:
+        xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    except:
+        pass 
 elif mode==101:
     fillPluginItems(url)
-    xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    try:
+        xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    except:
+        pass 
     
 elif mode==200:
     addon_log("write multi strms")
     type = getType()
-    writeSettings2(url, type)
+    writeSettings2(url,name, type)
     fillPluginItems(url, strm=True, strm_name=name, strm_type=type)
 
 elif mode==201:
