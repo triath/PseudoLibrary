@@ -20,7 +20,7 @@ import utils
 import random
 import string
 import os, sys, re, traceback
-#hase to be here otherwise you get errors like: UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 15: ordinal not in range(128) 
+#have to be here otherwise you get errors like: UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 15: ordinal not in range(128) 
 reload(sys)  
 sys.setdefaultencoding('utf8')
 import xbmc
